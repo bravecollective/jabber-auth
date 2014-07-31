@@ -10,6 +10,10 @@ from mongoengine import BinaryField
 from mongoengine.base import BaseField
 from scrypt import error as scrypt_error, encrypt as scrypt, decrypt as validate_scrypt
 
+from hashlib import sha256
+from ecdsa import SigningKey, VerifyingKey, NIST256p
+from binascii import unhexlify
+
 from web.core import config
 from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField
 from brave.api.client import API
@@ -17,6 +21,24 @@ from brave.api.client import API
 
 log = __import__('logging').getLogger(__name__)
 
+API_ENDPOINT = "http://localhost:8080/api"
+API_IDENTITY = "53bf20d99ce4be153ae19ce6"
+API_PRIVATE = "95c0a1bf354a58316d5e7e76e34be4df81180d8d1318ab6000f91a64496f035f"
+API_PUBLIC = "3c7d8470dd16e5fa39962c87f6dd9446aaabba3cca2170bfee2d3be2ed044ba60649d1c4249bbea28beac3b87441d06f516ffe0503d0c690961d97bd8e34532e"
+
+def hex2key(hex_key):
+    key_bytes = unhexlify(hex_key)
+    if len(hex_key) == 64:
+        return SigningKey.from_string(key_bytes, curve=NIST256p,
+                hashfunc=sha256)
+    elif len(hex_key) == 128:
+        return VerifyingKey.from_string(key_bytes, curve=NIST256p,
+                hashfunc=sha256)
+    else:
+        raise ValueError("Key in hex form is of the wrong length.")
+
+API_PRIVATE = hex2key(API_PRIVATE)
+API_PUBLIC = hex2key(API_PUBLIC)
 
 class PasswordField(BinaryField):
     def __init__(self, difficulty=1, **kwargs):
@@ -84,6 +106,7 @@ class Ticket(Document):
     corporation = EmbeddedDocumentField(Entity, db_field='o', default=lambda: Entity())
     alliance = EmbeddedDocumentField(Entity, db_field='a', default=lambda: Entity())
     tags = ListField(StringField(), db_field='g', default=list)
+    display_name = StringField(db_field='d')
     
     password = PasswordField(db_field='pw', difficulty=0.125)
     comment = StringField(db_field='m', default='')
@@ -104,7 +127,7 @@ class Ticket(Document):
     def authenticate(cls, identifier, password=None):
         """Validate the given identifier; password is ignored."""
         
-        api = API(config['api.endpoint'], config['api.identity'], config['api.private'], config['api.public'])
+        api = API(API_ENDPOINT, API_IDENTITY, API_PRIVATE, API_PUBLIC)
         result = api.core.info(identifier)
         
         #Invalid token sent. Probably a better way to handle this.
@@ -120,7 +143,8 @@ class Ticket(Document):
             user.token = identifier
         
         user.character.id = result.character.id
-        user.character.name = result.character.name
+        user.character.name = result.character.name.replace(" ", "_").lower()
+        user.display_name = result.character.name
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
         
@@ -132,7 +156,7 @@ class Ticket(Document):
             if alliance and alliance.success:
                 user.alliance.ticker = alliance.short
         
-        user.tags = [i.replace('mumble.', '') for i in (result.tags if 'tags' in result else [])]
+        user.tags = [i.replace('jabber.', '') for i in (result.perms if 'perms' in result else [])]
         user.updated = datetime.now()
         user.save()
         

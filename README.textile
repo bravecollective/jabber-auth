@@ -1,6 +1,6 @@
-h1(#title). Brave Collective Mumble Management Application
+h1(#title). Brave Collective Jabber Management Application
 
-bq(subtitle). An authenticated Mumble management application and authorization plug-in.
+bq(subtitle). An authenticated Jabber management application and authorization plug-in.
 
 bq(byline). (C) 2013-2014, Alice Bevan-McGregor and contributors.
 

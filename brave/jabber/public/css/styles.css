@@ -282,11 +282,11 @@ div[id^="comment-"] {
     font-weight: 500;
 }
 
-.mumble-name, .submitPassword {
+.jabber-name, .submitPassword {
     cursor: pointer;
 }
 
-.mumble-name {
+.jabber-name {
     display: block;
     width: 100%;
     height: 34px;

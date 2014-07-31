@@ -1,7 +1,7 @@
 ## encoding: utf-8
 
-<%inherit file="brave.mumble.template.master"/>
-<%namespace name="f" file="brave.mumble.template.filter"/>
+<%inherit file="brave.jabber.template.master"/>
+<%namespace name="f" file="brave.jabber.template.filter"/>
 
 <%block name="title">Account Management</%block>
 
@@ -11,7 +11,7 @@
 
 <div class="jumbotron">
     <p>
-        If this is your first time here, you’ll need to enter a password below before accessing Mumble.
+        If this is your first time here, you’ll need to enter a password below before accessing Jabber.
     </p>
     <p>
         If you are returning, you can use the password field below to change your password.
@@ -33,8 +33,8 @@
 
 <div class="row">
     <div class="col-md-6">
-        <%self:panel title="Mumble User Name" cls="user">
-            <div class="mumble-name">${web.user.character.name}</div>
+        <%self:panel title="Jabber User Name" cls="user">
+            <div class="jabber-name">${web.user.character.name}</div>
         </%self:panel>
     </div>
     
@@ -58,8 +58,8 @@
     </div>
 </div>
 
-<%self:panel title="Connecting to Mumble">
-    <p>Some day there will be a guide describing how you, too, can participate in the joy and wonder of this thing called Mumble! <em>And today is that day!</em><br />You've already completed most of the steps. <a href="https://wiki.braveineve.com/it/mumble/">Click here</a></p>
+<%self:panel title="Connecting to Jabber">
+    <p>Some day there will be a guide describing how you, too, can participate in the joy and wonder of this thing called Jabber! <em>And today is that day!</em><br />You've already completed most of the steps. <a href="https://wiki.braveineve.com/it/jabber/">Click here</a></p>
 </%self:panel>
 
 

@@ -4,7 +4,7 @@ import sys, os
 from setuptools import setup, find_packages
 
 setup(
-        name = "Brave Mumble",
+        name = "Brave Jabber",
         version = "0.1",
         description = "Online forums software designed for the Brave Collective Alliance of EVE Online.",
         author = "Alice Bevan-McGregor",
@@ -46,4 +46,8 @@ setup(
                 'scrypt'
             ],
         
+        
+        entry_points={
+        'paste.global_paster_command': [ "startAuth = brave.jabber.shell:ShellCommand", ]
+        },
     )
