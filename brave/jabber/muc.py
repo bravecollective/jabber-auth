@@ -44,7 +44,8 @@ def muc_access(username, room):
     if '/' in server:
         server = server.split('/')[0]
     
-    if server != "conference.localhost" and server != 'braveineve.com':
+    # TODO: CONFIG THIS
+    if server != "conference.bravecollective.com" and server != 'bravecollective.com':
         respond("error: Invalid host: {0}".format(server), conn)
         return
     
@@ -54,17 +55,16 @@ def muc_access(username, room):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
     
     if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-		print "UPDATING DUE TO TIME!"
 		if not Ticket.authenticate(user.token):
-			return AUTH_FAIL
+			return ACCESS_DENIED
 		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
+		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     
     tags = [i.replace('jabber.', '') for i in user.tags]
     
@@ -82,18 +82,17 @@ def muc_roles(username, room):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         respond(ACCESS_DENIED, conn)
         return
     
     if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-		print "UPDATING DUE TO TIME!"
 		if not Ticket.authenticate(user.token):
 			return AUTH_FAIL
 		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
+		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     
     tags = [i.replace('jabber.', '') for i in user.tags]
     
@@ -123,6 +122,7 @@ def muc_roles(username, room):
         if Permission.set_grants_permission(tags, perm):
             role = r
             break
+    
     if not role and affiliation == 'owner' or affiliation == 'admin':
 		role = 'moderator'
     
@@ -130,13 +130,12 @@ def muc_roles(username, room):
     return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
 
 def muc_nick(username, room):
-    """ TODO: Allow this to vary based on room."""
-    
+	
     name = username
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'display_name').get(character__name=name)
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         respond(ACCESS_DENIED, conn)
@@ -147,16 +146,16 @@ def muc_nick(username, room):
 		if not Ticket.authenticate(user.token):
 			return AUTH_FAIL
 		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'display_name').get(character__name=name)
+		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
     
-    tags = [i.replace('jabber.', '') for i in user.tags]
+    tags = [i.replace('jabber.', '') for i in user.tags]d
     
     if user.alliance.ticker:
         alliance = user.alliance.ticker
     else:
         alliance = "----"
         
-    char = user.display_name
+    char = user.character.name
     
     # Check if the user has a permission granting them access to a rank in this room.
     ranks = Permission.set_has_any_permission(tags, 'muc.rank.*.{0}'.format(room))
@@ -177,7 +176,7 @@ def auth(username, host, password):
 
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
@@ -197,25 +196,9 @@ def auth(username, host, password):
        log.warn('pass-fail "%s"', name)
        return ACCESS_DENIED
          
-   # try:
-        # If the token is not valid, deny access
+    # If the token is not valid, deny access
     if not Ticket.authenticate(user.token):
         return ACCESS_DENIED
-    """ except Exception as e:
-        log.warning("Exception {0} occured when attempting to authenticate user {1}.".format(e, name))
-        return AUTH_FAIL
-                
-        # Update the local user object against the newly refreshed DB ticket.
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
-            
-        # Define the registration date if one has not been set.
-        Ticket.objects(character__name=name, registered=None).update(set__registered=datetime.utcnow())
-        
-        for tag in ('member', 'blue', 'guest', 'jabber'):
-            if tag in user.tags: break"""
-   # else:
-    #    log.warn('User "%s" does not have permission to connect to this server.', name)
-     #   return AUTH_FAIL
         
     tags = [i.replace('jabber.', '') for i in user.tags]
         
@@ -236,26 +219,15 @@ def isuser(username):
     # Look up the user.
     print("isuser")
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(character__name=name)
-        return AUTH_SUCCESS
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        return ACCESS_APPROVED
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
-        return AUTH_FAIL
+        return ACCESS_DENIED
 
 def respond(ret, conn):
     print ret
     conn.send(ret+"\n")
-    
-def hex2key(hex_key):
-    key_bytes = unhexlify(hex_key)
-    if len(hex_key) == 64:
-        return SigningKey.from_string(key_bytes, curve=NIST256p,
-                hashfunc=sha256)
-    elif len(hex_key) == 128:
-        return VerifyingKey.from_string(key_bytes, curve=NIST256p,
-                hashfunc=sha256)
-    else:
-        raise ValueError("Key in hex form is of the wrong length.")
 
 connect('jabber')
 
