@@ -148,7 +148,7 @@ def muc_nick(username, room):
 		
 		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
     
-    tags = [i.replace('jabber.', '') for i in user.tags]d
+    tags = [i.replace('jabber.', '') for i in user.tags]
     
     if user.alliance.ticker:
         alliance = user.alliance.ticker
