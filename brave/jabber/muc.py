@@ -46,8 +46,7 @@ def muc_access(username, room):
     
     # TODO: CONFIG THIS
     if server != "conference.bravecollective.com" and server != 'bravecollective.com':
-        respond("error: Invalid host: {0}".format(server), conn)
-        return
+        return ACCESS_DENIED
     
     name = username.split("@")[0].lower()
     
@@ -61,17 +60,17 @@ def muc_access(username, room):
         return ACCESS_DENIED
     
     if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-		if not Ticket.authenticate(user.token):
-			return ACCESS_DENIED
-		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        if not Ticket.authenticate(user.token):
+            return ACCESS_DENIED
+        
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     
     tags = [i.replace('jabber.', '') for i in user.tags]
     
     # Check if a user has been outcasted from the room, used to ban specific users from a room
     # they normally could access. (Why did I agree to not allowing negative permissions again?)
     if Permission.set_grants_permission(tags, 'muc.affiliate.outcast.{0}'.format(room)):
-		return ACCESS_DENIED
+        return ACCESS_DENIED
     
     if Permission.set_grants_permission(tags, 'muc.enter.{0}'.format(room)):
         return ACCESS_APPROVED
@@ -89,10 +88,10 @@ def muc_roles(username, room):
         return
     
     if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-		if not Ticket.authenticate(user.token):
-			return AUTH_FAIL
-		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        if not Ticket.authenticate(user.token):
+            return ACCESS_DENIED
+        
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
     
     tags = [i.replace('jabber.', '') for i in user.tags]
     
@@ -124,13 +123,13 @@ def muc_roles(username, room):
             break
     
     if not role and affiliation == 'owner' or affiliation == 'admin':
-		role = 'moderator'
+        role = 'moderator'
     
     # Default affiliation is member (user will have already been checked for access
     return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
 
 def muc_nick(username, room):
-	
+    
     name = username
     
     # Look up the user.
@@ -142,11 +141,11 @@ def muc_nick(username, room):
         return
         
     if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-		print "UPDATING DUE TO TIME!"
-		if not Ticket.authenticate(user.token):
-			return AUTH_FAIL
-		
-		user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
+        print "UPDATING DUE TO TIME!"
+        if not Ticket.authenticate(user.token):
+            return ACCESS_DENIED
+        
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
     
     tags = [i.replace('jabber.', '') for i in user.tags]
     
@@ -162,7 +161,7 @@ def muc_nick(username, room):
     
     display = set()
     for r in ranks:
-		display.add(r.replace("muc.rank.", "").replace(".{0}".format(room), ""))
+        display.add(r.replace("muc.rank.", "").replace(".{0}".format(room), ""))
     
     if ranks:
         return "{0} [{1}] ({2})".format(char, alliance, ", ".join(display))
@@ -215,6 +214,40 @@ def auth(username, host, password):
     
     return ACCESS_APPROVED
     
+def send_ping(username, group):
+    
+    name = username
+    
+    # Look up the user.
+    try:
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+    except Ticket.DoesNotExist:
+        log.warn('User "%s" not found in the Ticket database.', name)
+        return ACCESS_DENIED
+        
+    tags = [i.replace('jabber.', '') for i in user.tags]
+    
+    if not Permission.set_grants_permission(tags, 'ping.send.{0}'.format(group)):
+        return ACCESS_DENIED
+        
+    return ACCESS_APPROVED
+    
+def receive_ping(group):
+    
+    # users = Ticket.objects.only('username').get(tags__in='ping.receive.{0}'.format(group))
+    
+    users = Ticket.objects.only('username', 'tags')
+    
+    perm = 'ping.receive.{0}'.format(group)
+    
+    members = []
+    
+    for u in users:
+        if Permission.set_grants_permission(u.tags, perm):
+            members.append(str(u.username))
+    
+    return str(members)
+    
 def isuser(username):
     # Look up the user.
     print("isuser")
@@ -244,31 +277,37 @@ sock.listen(5)
 print "Listening"
 
 while 1:
-	try:
-		conn, addr = sock.accept()
-		print "Received connection from {0}".format(addr)
-		line = conn.recv(2048)
-		print "Received: {0}".format(line)
-		#conn.send("Hello o/\n")
-		method, sep, data = line.partition(":")
-		split_data = data.split(":")
-		if method == "muc_access" and len(split_data) == 2:
-			respond(muc_access(str(split_data[0]), str(split_data[1])), conn)
-			continue
-		elif method == "auth" and len(split_data) == 3:
-			respond(auth(split_data[0], split_data[1], split_data[2]), conn)
-			continue
-		elif method == "isuser" and len(split_data) == 1:
-			respond(isuser(split_data[0]), conn)
-			continue
-		elif method == "muc_roles" and len(split_data) == 2:
-			respond(muc_roles(split_data[0], split_data[1]), conn)
-			continue
-		elif method == "muc_nick" and len(split_data) == 2:
-			respond(muc_nick(split_data[0], split_data[1]), conn)
-			continue
-		respond("ERROR: FAILED TO COMPREHEND RESPONSE!", conn)
-	except Exception as e:
-		print "An exception has occurred: {0}".format(e)
-		respond("ERROR: AN INTERNAL ERROR HAS OCCURRED", conn)
-		raise e
+    try:
+        conn, addr = sock.accept()
+        print "Received connection from {0}".format(addr)
+        line = conn.recv(2048)
+        print "Received: {0}".format(line)
+        #conn.send("Hello o/\n")
+        method, sep, data = line.partition(":")
+        split_data = data.split(":")
+        if method == "muc_access" and len(split_data) == 2:
+            respond(muc_access(str(split_data[0]), str(split_data[1])), conn)
+            continue
+        elif method == "auth" and len(split_data) == 3:
+            respond(auth(split_data[0], split_data[1], split_data[2]), conn)
+            continue
+        elif method == "isuser" and len(split_data) == 1:
+            respond(isuser(split_data[0]), conn)
+            continue
+        elif method == "muc_roles" and len(split_data) == 2:
+            respond(muc_roles(split_data[0], split_data[1]), conn)
+            continue
+        elif method == "muc_nick" and len(split_data) == 2:
+            respond(muc_nick(split_data[0], split_data[1]), conn)
+            continue
+        elif method == "send_ping" and len(split_data) == 2:
+            respond(send_ping(split_data[0], split_data[1]), conn)
+            continue
+        elif method == "receive_ping" and len(split_data) == 1:
+            respond(receive_ping(split_data[0]), conn)
+            continue
+        respond("ERROR: FAILED TO COMPREHEND RESPONSE!", conn)
+    except AssertionError as e:
+        print "An exception has occurred: {0}".format(e)
+        respond("ERROR: AN INTERNAL ERROR HAS OCCURRED", conn)
+        raise e
