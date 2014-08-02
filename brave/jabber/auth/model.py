@@ -197,6 +197,9 @@ class Ticket(Document):
     
         if not role and affiliation == 'owner' or affiliation == 'admin':
             role = 'moderator'
+            
+        if not muc in self.joinable_mucs:
+			return "outcast:visitor"
     
         # Default affiliation is member (user will have already been checked for access)
         return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
