@@ -16,7 +16,7 @@ from binascii import unhexlify
 
 from web.core import config
 from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField
-from brave.api.client import API
+from brave.api.client import API, Permission
 
 
 log = __import__('logging').getLogger(__name__)
@@ -160,12 +160,11 @@ class Ticket(Document):
         
         user.tags = [i.replace('jabber.', '') for i in (result.perms if 'perms' in result else [])]
         
-        # Hardcode the hosts because I'm tired and just want this done with
-        hosts = set_has_any_permission(tags, 'host.*')
+        hosts = Permission.set_has_any_permission(user.tags, 'host.*')
         if hosts:
-            jid_host = hosts[0]
+            user.jid_host = hosts[0][5:]
         else:
-            jid_host = 'public.bravecollective.com'
+            user.jid_host = 'public.bravecollective.com'
         
         user.updated = datetime.now()
         user.save()

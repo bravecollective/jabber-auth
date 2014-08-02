@@ -48,7 +48,7 @@ def muc_access(username, room):
     if server != "conference.bravecollective.com" and server != 'bravecollective.com':
         return ACCESS_DENIED
     
-    name = username.split("@")[0].lower()
+    name = username
     
     user = ""
     
@@ -293,9 +293,11 @@ while 1:
         if not method == 'receive_ping' and not split_data[0] in ['bravecollective.com', 'allies.bravecollective.com', 'conference.bravecollective.com']:
             respond("ERROR: Non-Authorized host", conn)
             continue
-        if not method == 'receive_ping' and not Ticket.objects.only('username').get(username=split_data[1]).get(jid_host=split_data[0]):
-            respond("ERROR: User does not exist on this host.", conn)
-            continue
+        if not method == 'receive_ping':
+            t = Ticket.objects(username=split_data[1]).only('jid_host').first()
+            if not t.jid_host == split_data[0]: 
+                respond("ERROR: User does not exist on this host.", conn)
+                continue
         if method == "muc_access" and len(split_data) == 3:
             respond(muc_access(split_data[1], split_data[2]), conn)
             continue
