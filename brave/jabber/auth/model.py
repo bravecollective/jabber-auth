@@ -119,6 +119,101 @@ class Ticket(Document):
     jid_host = StringField(db_field='j')
     
     @property
+    def joinable_mucs(self):
+        mucs = Permission.set_has_any_permission(self.tags, 'muc.enter.*')
+        
+        allowed_mucs = []
+        
+        if not mucs:
+            return []
+        
+        for muc in mucs:
+            # Get just the muc name
+            muc = muc.replace('muc.enter.', '')
+            
+            # Check if a user has been outcasted from the room, used to ban specific users from a room
+            # they normally could access. (Why did I agree to not allowing negative permissions again?)
+            if not Permission.set_grants_permission(self.tags, 'muc.affiliate.outcast.{0}'.format(muc)):
+                allowed_mucs.append(muc)
+    
+        return allowed_mucs
+        
+    def muc_nickname(self, muc):
+        
+        # When the room we're joining is not known, show the user's default ranks
+        if muc == '*':
+            muc = 'default'
+        
+        if self.alliance and self.alliance.ticker:
+            alliance = self.alliance.ticker
+        else:
+            alliance = "----"
+        
+        char = self.character.name
+    
+        # Check if the user has a permission granting them access to a rank in this room.
+        ranks = Permission.set_has_any_permission(self.tags, 'muc.rank.*.{0}'.format(muc))
+        
+        # If the user has no ranks for this room specified, check if they have any default ranks
+        if not ranks:
+            ranks = Permission.set_has_any_permission(self.tags, 'muc.rank.*.{0}'.format('default'))
+        
+        if not ranks:
+            return "{0} [{1}]".format(char, alliance)
+        
+        display = set()
+        for r in ranks:
+            # Remove the beginning portion of the permission, as well as the room identifier to get just the rank
+            display.add(r.replace("muc.rank.", "").replace(".{0}".format(muc), ""))
+    
+        return "{0} [{1}] ({2})".format(char, alliance, ", ".join(display))
+        
+    def muc_roles(self, muc):
+        # Affiliations
+        affs = dict()
+        affs['owner'] = u'muc.affiliate.owner.{0}'.format(muc)
+        affs['admin'] = u'muc.affiliate.admin.{0}'.format(muc)
+        affs['member'] = u'muc.affiliate.member.{0}'.format(muc)
+        affs['outcast'] = u'muc.affiliate.outcast.{0}'.format(muc)
+    
+        # Roles
+        roles = dict()
+        roles['moderator'] = u'muc.role.moderator.{0}'.format(muc)
+        roles['participant'] = u'muc.role.participant.{0}'.format(muc)
+        roles['visitor'] = u'muc.role.visitor.{0}'.format(muc)
+    
+        role = None
+        affiliation = None
+    
+        for a, perm in affs.iteritems():
+            if Permission.set_grants_permission(self.tags, perm):
+                affiliation = a
+                break
+    
+        for r, perm in roles.iteritems():
+            if Permission.set_grants_permission(self.tags, perm):
+                role = r
+                break
+    
+        if not role and affiliation == 'owner' or affiliation == 'admin':
+            role = 'moderator'
+    
+        # Default affiliation is member (user will have already been checked for access)
+        return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
+        
+    def can_send_ping(self, ping_group):
+        if not Permission.set_grants_permission(self.tags, 'ping.send.{0}'.format(ping_group)):
+            return "0"
+        
+        return "1"
+        
+    def can_receive_ping(self, ping_group):
+        if Permission.set_grants_permission(self.tags, 'ping.receive.{0}'.format(ping_group)):
+            return(str(str(self.username) + str("@") + str(self.jid_host)))
+            
+        return False
+    
+    @property
     def has_password(self):
         return bool(self.password)
     
@@ -132,7 +227,7 @@ class Ticket(Document):
         api = API(API_ENDPOINT, API_IDENTITY, API_PRIVATE, API_PUBLIC)
         result = api.core.info(identifier)
         
-        #Invalid token sent. Probably a better way to handle this.
+        # Invalid token sent. Probably a better way to handle this.
         if not result:
             log.info("Token %s not valid, or connection to Core has been lost.", identifier)
             return None
@@ -146,7 +241,8 @@ class Ticket(Document):
         
         user.character.id = result.character.id
         user.character.name = result.character.name
-        user.username = result.character.name.replace(" ", "_").lower()
+        # Spaces and ' are invalid for XMPP IDs
+        user.username = result.character.name.replace(" ", "_").replace("'", "").lower()
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
         

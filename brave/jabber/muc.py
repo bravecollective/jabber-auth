@@ -47,7 +47,7 @@ def muc_access(username, room):
     
     # TODO: CONFIG THIS
     if server != "conference.bravecollective.com" and server != 'bravecollective.com':
-        return ACCESS_DENIED
+        return ACCESS_APPROVED
     
     name = username
     
@@ -60,22 +60,7 @@ def muc_access(username, room):
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
     
-    if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-        if not Ticket.authenticate(user.token):
-            return ACCESS_DENIED
-        
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
-    
-    tags = [i.replace('jabber.', '') for i in user.tags]
-    
-    # Check if a user has been outcasted from the room, used to ban specific users from a room
-    # they normally could access. (Why did I agree to not allowing negative permissions again?)
-    if Permission.set_grants_permission(tags, 'muc.affiliate.outcast.{0}'.format(room)):
-        return ACCESS_DENIED
-    
-    if Permission.set_grants_permission(tags, 'muc.enter.{0}'.format(room)):
-        return ACCESS_APPROVED
-    return ACCESS_DENIED
+    return ACCESS_APPROVED if (room in user.joinable_mucs) else ACCESS_DENIED
     
 def muc_roles(username, room):
     name = username
@@ -88,46 +73,7 @@ def muc_roles(username, room):
         respond(ACCESS_DENIED, conn)
         return
     
-    if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-        if not Ticket.authenticate(user.token):
-            return ACCESS_DENIED
-        
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
-    
-    tags = [i.replace('jabber.', '') for i in user.tags]
-    
-    # Affiliations
-    affs = dict()
-    affs['owner'] = u'muc.affiliate.owner.{0}'.format(room)
-    affs['admin'] = u'muc.affiliate.admin.{0}'.format(room)
-    affs['member'] = u'muc.affiliate.member.{0}'.format(room)
-    affs['outcast'] = u'muc.affiliate.outcast.{0}'.format(room)
-    
-    
-    # Roles
-    roles = dict()
-    roles['moderator'] = u'muc.role.moderator.{0}'.format(room)
-    roles['participant'] = u'muc.role.participant.{0}'.format(room)
-    roles['visitor'] = u'muc.role.visitor.{0}'.format(room)
-    
-    role = None
-    affiliation = None
-    
-    for a, perm in affs.iteritems():
-        if Permission.set_grants_permission(tags, perm):
-            affiliation = a
-            break
-    
-    for r, perm in roles.iteritems():
-        if Permission.set_grants_permission(tags, perm):
-            role = r
-            break
-    
-    if not role and affiliation == 'owner' or affiliation == 'admin':
-        role = 'moderator'
-    
-    # Default affiliation is member (user will have already been checked for access
-    return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
+    return user.muc_roles(room)
 
 def muc_nick(username, room):
     
@@ -141,33 +87,7 @@ def muc_nick(username, room):
         respond(ACCESS_DENIED, conn)
         return
         
-    if not user.updated or (user.updated + timedelta(minutes=5)) < datetime.now():
-        print "UPDATING DUE TO TIME!"
-        if not Ticket.authenticate(user.token):
-            return ACCESS_DENIED
-        
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
-    
-    tags = [i.replace('jabber.', '') for i in user.tags]
-    
-    if user.alliance.ticker:
-        alliance = user.alliance.ticker
-    else:
-        alliance = "----"
-        
-    char = user.character.name
-    
-    # Check if the user has a permission granting them access to a rank in this room.
-    ranks = Permission.set_has_any_permission(tags, 'muc.rank.*.{0}'.format(room))
-    
-    display = set()
-    for r in ranks:
-        display.add(r.replace("muc.rank.", "").replace(".{0}".format(room), ""))
-    
-    if ranks:
-        return "{0} [{1}] ({2})".format(char, alliance, ", ".join(display))
-    
-    return "{0} [{1}]".format(char, alliance)
+    return user.muc_nickname(room)
     
 def auth(host, username, password):
     log.info('Authenticate "%s"', username)
@@ -230,26 +150,22 @@ def send_ping(username, group):
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
         
-    tags = [i.replace('jabber.', '') for i in user.tags]
-    
-    if not Permission.set_grants_permission(tags, 'ping.send.{0}'.format(group)):
-        return ACCESS_DENIED
-        
-    return ACCESS_APPROVED
+    return user.can_send_ping(group)
     
 def receive_ping(group):
     
     # users = Ticket.objects.only('username').get(tags__in='ping.receive.{0}'.format(group))
     
-    users = Ticket.objects.only('username', 'tags')
+    users = Ticket.objects.only('username', 'tags', 'jid_host')
     
     perm = 'ping.receive.{0}'.format(group)
     
     members = []
     
     for u in users:
-        if Permission.set_grants_permission(u.tags, perm):
-            members.append(str(u.username + "@" + u.jid_host))
+        name = u.can_receive_ping(group)
+        if name:
+            members.append(name)
     
     return str(members)
     
@@ -299,7 +215,7 @@ while 1:
             if not t:
                 respond("ERROR: User {0} does not exist".format(split_data[1]), conn)
                 continue
-            if not t.jid_host or t.jid_host != split_data[0]: 
+            if not t.jid_host or t.jid_host.lower() != split_data[0].lower(): 
                 respond("ERROR: User {0} does not exist on this host {1}, expected {2}".format(t.username, split_data[0], t.jid_host), conn)
                 continue
         if method == "muc_access" and len(split_data) == 3:
@@ -309,7 +225,7 @@ while 1:
             respond(auth(split_data[0], split_data[1], split_data[2]), conn)
             continue
         elif method == "isuser" and len(split_data) == 2:
-            respond(isuser(split_data[0], split_data[1]), conn)
+            respond(isuser(split_data[1]), conn)
             continue
         elif method == "muc_roles" and len(split_data) == 3:
             respond(muc_roles(split_data[1], split_data[2]), conn)

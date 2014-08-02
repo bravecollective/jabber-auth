@@ -58,6 +58,29 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="col-md-6">
+        <%self:panel title="Jabber Domain" cls="domain">
+            <div class="jabber-name">${web.user.jid_host}</div>
+        </%self:panel>
+    </div>
+    
+   <div class="col-md-6">
+        <%self:panel title="Jabber MUCs" cls="mucs">
+            <div class="jabber-mucs">
+                % for muc in web.user.joinable_mucs:
+                <%
+                spaces = ""
+                for i in range(len(muc), 15):
+                    spaces += " "
+                %>
+                    <pre>${muc}: ${spaces}${web.user.muc_nickname(muc)}</pre>
+                % endfor
+            </div>
+        </%self:panel>
+    </div>
+</div>
+
 <%self:panel title="Connecting to Jabber">
     <p>Some day there will be a guide describing how you, too, can participate in the joy and wonder of this thing called Jabber! <em>And today is that day!</em><br />You've already completed most of the steps. <a href="https://wiki.braveineve.com/it/jabber/">Click here</a></p>
 </%self:panel>
