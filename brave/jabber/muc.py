@@ -169,6 +169,18 @@ def receive_ping(group):
     
     return str(members)
     
+def vCard(username):
+    name = username
+    
+    # Look up the user.
+    try:
+        user = Ticket.objects.get(username=name)
+    except Ticket.DoesNotExist:
+        log.warn('User "%s" not found in the Ticket database.', name)
+        return ""
+        
+    return user.vCard
+    
 def isuser(username):
     # Look up the user.
     print("isuser")
@@ -238,6 +250,9 @@ while 1:
             continue
         elif method == "receive_ping" and len(split_data) == 1:
             respond(receive_ping(split_data[0]), conn)
+            continue
+        elif method == "vCard" and len(split_data) == 2:
+            respond(vCard(split_data[1]), conn)
             continue
         respond("ERROR: FAILED TO COMPREHEND RESPONSE!", conn)
     except BadSignatureError as e:

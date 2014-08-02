@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 import re
 from datetime import datetime
-from random import choice
+from random import choice, randint
 from string import printable
 from mongoengine import BinaryField
 from mongoengine.base import BaseField
@@ -199,7 +199,7 @@ class Ticket(Document):
             role = 'moderator'
             
         if not muc in self.joinable_mucs:
-			return "outcast:visitor"
+            return "outcast:visitor"
     
         # Default affiliation is member (user will have already been checked for access)
         return "{0}:{1}".format(affiliation if affiliation else "member", role if role else "participant")
@@ -215,6 +215,22 @@ class Ticket(Document):
             return(str(str(self.username) + str("@") + str(self.jid_host)))
             
         return False
+        
+    @property
+    def vCard(self):
+        org_name = self.alliance.name
+        org_unit = self.corporation.name
+        full_name = self.character.name
+        
+        return "{full_name}:{org_name}:{org_unit}".format(full_name=full_name, org_name=org_name, org_unit=org_unit)
+        
+        return ("<vCard xmnls='vcard-temp'>$n"
+				"  <FN>{full_name}</FN>$n"
+                "  <ORG>$n"
+                "    <ORGNAME>{org_name}</ORGNAME>$n"
+                "    <ORGUNIT>{org_unit}</ORGUNIT>$n"
+                "  </ORG>$n"
+                "</vCard>$n").format(full_name=full_name, org_name=org_name, org_unit=org_unit)
     
     @property
     def has_password(self):
