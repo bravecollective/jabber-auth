@@ -21,6 +21,7 @@ from logging import StreamHandler, DEBUG
 from brave.jabber.auth.model import Ticket, API_ENDPOINT, API_IDENTITY, API_PRIVATE, API_PUBLIC
 
 from ecdsa import SigningKey, VerifyingKey, NIST256p
+from ecdsa.keys import BadSignatureError
 from binascii import unhexlify
 from hashlib import sha256
 
@@ -248,7 +249,7 @@ def receive_ping(group):
     
     for u in users:
         if Permission.set_grants_permission(u.tags, perm):
-            members.append(str(u.username))
+            members.append(str(u.username + "@" + u.jid_host))
     
     return str(members)
     
@@ -290,13 +291,16 @@ while 1:
         #conn.send("Hello o/\n")
         method, sep, data = line.partition(":")
         split_data = data.split(":")
-        if not method == 'receive_ping' and not split_data[0] in ['bravecollective.com', 'allies.bravecollective.com', 'conference.bravecollective.com']:
-            respond("ERROR: Non-Authorized host", conn)
+        if not method == 'receive_ping' and not split_data[0] in ['bravecollective.com', 'allies.bravecollective.com', 'conference.bravecollective.com', 'public.bravecollective.com']:
+            respond("ERROR: Non-Authorized host {0}".format(split_data[0]), conn)
             continue
         if not method == 'receive_ping':
             t = Ticket.objects(username=split_data[1]).only('jid_host').first()
-            if not t.jid_host == split_data[0]: 
-                respond("ERROR: User does not exist on this host.", conn)
+            if not t:
+                respond("ERROR: User {0} does not exist".format(split_data[1]), conn)
+                continue
+            if not t.jid_host or t.jid_host != split_data[0]: 
+                respond("ERROR: User {0} does not exist on this host {1}, expected {2}".format(t.username, split_data[0], t.jid_host), conn)
                 continue
         if method == "muc_access" and len(split_data) == 3:
             respond(muc_access(split_data[1], split_data[2]), conn)
@@ -320,7 +324,7 @@ while 1:
             respond(receive_ping(split_data[0]), conn)
             continue
         respond("ERROR: FAILED TO COMPREHEND RESPONSE!", conn)
-    except AssertionError as e:
-        print "An exception has occurred: {0}".format(e)
+    except BadSignatureError as e:
+        print "BadSignatureError"
         respond("ERROR: AN INTERNAL ERROR HAS OCCURRED", conn)
         raise e
