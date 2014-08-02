@@ -116,6 +116,8 @@ class Ticket(Document):
     updated = DateTimeField(db_field='u')
     registered = DateTimeField(db_field='r')
     
+    jid_host = StringField(db_field='j')
+    
     @property
     def has_password(self):
         return bool(self.password)
@@ -157,6 +159,14 @@ class Ticket(Document):
                 user.alliance.ticker = alliance.short
         
         user.tags = [i.replace('jabber.', '') for i in (result.perms if 'perms' in result else [])]
+        
+        # Hardcode the hosts because I'm tired and just want this done with
+        hosts = set_has_any_permission(tags, 'host.*')
+        if hosts:
+            jid_host = hosts[0]
+        else:
+            jid_host = 'public.bravecollective.com'
+        
         user.updated = datetime.now()
         user.save()
         

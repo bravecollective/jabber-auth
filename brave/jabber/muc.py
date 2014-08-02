@@ -168,20 +168,24 @@ def muc_nick(username, room):
     
     return "{0} [{1}]".format(char, alliance)
     
-def auth(username, host, password):
+def auth(host, username, password):
     log.info('Authenticate "%s"', username)
     
     name = username.split("@")[0]
 
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'jid_host').get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
         
     password = password.encode('utf-8')
-       
+    
+    if user.jid_host != host:
+        log.warn("User attempted to join on incorrect host {0}; actual host is {1}".format(host, user.jid_host))
+        return ACCESS_DENIED
+    
     if not isinstance(password, basestring):
         log.warn('pass-notString-fail "%s"', name)
         return ACCESS_DENIED
@@ -206,7 +210,7 @@ def auth(username, host, password):
         tags.append('alliance-{0}'.format(user.alliance.id))
         
     log.debug('success "%s" %s', name, ' '.join(tags))
-        
+    
     ticker = user.alliance.ticker if user.alliance.ticker else '----'
     
     if not Permission.set_grants_permission(tags, 'connect'):
@@ -251,6 +255,7 @@ def receive_ping(group):
 def isuser(username):
     # Look up the user.
     print("isuser")
+    name = username
     try:
         user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
         return ACCESS_APPROVED
@@ -285,23 +290,29 @@ while 1:
         #conn.send("Hello o/\n")
         method, sep, data = line.partition(":")
         split_data = data.split(":")
-        if method == "muc_access" and len(split_data) == 2:
-            respond(muc_access(str(split_data[0]), str(split_data[1])), conn)
+        if not method == 'receive_ping' and not split_data[0] in ['bravecollective.com', 'allies.bravecollective.com', 'conference.bravecollective.com']:
+            respond("ERROR: Non-Authorized host", conn)
+            continue
+        if not method == 'receive_ping' and not Ticket.objects.only('username').get(username=split_data[1]).get(jid_host=split_data[0]):
+            respond("ERROR: User does not exist on this host.", conn)
+            continue
+        if method == "muc_access" and len(split_data) == 3:
+            respond(muc_access(split_data[1], split_data[2]), conn)
             continue
         elif method == "auth" and len(split_data) == 3:
             respond(auth(split_data[0], split_data[1], split_data[2]), conn)
             continue
-        elif method == "isuser" and len(split_data) == 1:
-            respond(isuser(split_data[0]), conn)
+        elif method == "isuser" and len(split_data) == 2:
+            respond(isuser(split_data[0], split_data[1]), conn)
             continue
-        elif method == "muc_roles" and len(split_data) == 2:
-            respond(muc_roles(split_data[0], split_data[1]), conn)
+        elif method == "muc_roles" and len(split_data) == 3:
+            respond(muc_roles(split_data[1], split_data[2]), conn)
             continue
-        elif method == "muc_nick" and len(split_data) == 2:
-            respond(muc_nick(split_data[0], split_data[1]), conn)
+        elif method == "muc_nick" and len(split_data) == 3:
+            respond(muc_nick(split_data[1], split_data[2]), conn)
             continue
-        elif method == "send_ping" and len(split_data) == 2:
-            respond(send_ping(split_data[0], split_data[1]), conn)
+        elif method == "send_ping" and len(split_data) == 3:
+            respond(send_ping(split_data[1], split_data[2]), conn)
             continue
         elif method == "receive_ping" and len(split_data) == 1:
             respond(receive_ping(split_data[0]), conn)
