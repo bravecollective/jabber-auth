@@ -211,7 +211,7 @@ class Ticket(Document):
         return "1"
         
     def can_receive_ping(self, ping_group):
-        if Permission.set_grants_permission(self.tags, 'ping.receive.{0}'.format(ping_group)):
+        if not Permission.set_grants_permission(self.tags, 'ping.ignore.{0}'.format(ping_group)) and Permission.set_grants_permission(self.tags, 'ping.receive.{0}'.format(ping_group)):
             return(str(str(self.username) + str("@") + str(self.jid_host)))
             
         return False

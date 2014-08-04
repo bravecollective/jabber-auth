@@ -158,8 +158,6 @@ def receive_ping(group):
     
     users = Ticket.objects.only('username', 'tags', 'jid_host')
     
-    perm = 'ping.receive.{0}'.format(group)
-    
     members = []
     
     for u in users:
