@@ -15,7 +15,7 @@ from ecdsa import SigningKey, VerifyingKey, NIST256p
 from binascii import unhexlify
 
 from web.core import config
-from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField
+from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField, BooleanField
 from brave.api.client import API, Permission
 
 
@@ -117,6 +117,9 @@ class Ticket(Document):
     registered = DateTimeField(db_field='r')
     
     jid_host = StringField(db_field='j')
+    bot = BooleanField(db_field='b')
+    # Used solely by bots
+    display_name = StringField(db_field='bs')
     
     @property
     def joinable_mucs(self):
@@ -150,6 +153,9 @@ class Ticket(Document):
             alliance = "----"
         
         char = self.character.name
+        
+        if self.bot:
+            return self.display_name
     
         # Check if the user has a permission granting them access to a rank in this room.
         ranks = Permission.set_has_any_permission(self.tags, 'muc.rank.*.{0}'.format(muc))
@@ -218,19 +224,13 @@ class Ticket(Document):
         
     @property
     def vCard(self):
+        if self.bot:
+            return "{username}:BOT:BOT".format(username=self.display_name)
         org_name = self.alliance.name
         org_unit = self.corporation.name
         full_name = self.character.name
         
         return "{full_name}:{org_name}:{org_unit}".format(full_name=full_name, org_name=org_name, org_unit=org_unit)
-        
-        return ("<vCard xmnls='vcard-temp'>$n"
-				"  <FN>{full_name}</FN>$n"
-                "  <ORG>$n"
-                "    <ORGNAME>{org_name}</ORGNAME>$n"
-                "    <ORGUNIT>{org_unit}</ORGUNIT>$n"
-                "  </ORG>$n"
-                "</vCard>$n").format(full_name=full_name, org_name=org_name, org_unit=org_unit)
     
     @property
     def has_password(self):
@@ -296,3 +296,14 @@ class Ticket(Document):
             user.update(set__seen=datetime.utcnow())
         
         return user
+        
+    @staticmethod
+    def create_bot(owner, username, password, display_name):
+        # Create the Bot based on the bot's owner
+        t = Ticket(token=owner.token, character=owner.character, alliance=owner.alliance, tags=owner.tags)
+        t.username = username
+        t.password = password
+        t.display_name = display_name
+        t.jid_host = 'bot.bravecollective.com'
+        t.bot = True
+        t.save()

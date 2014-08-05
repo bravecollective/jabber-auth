@@ -81,7 +81,7 @@ def muc_nick(username, room):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'character__name').get(username=name)
+        user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         respond(ACCESS_DENIED, conn)
@@ -217,9 +217,6 @@ while 1:
         #conn.send("Hello o/\n")
         method, sep, data = line.partition(":")
         split_data = data.split(":")
-        if not method == 'receive_ping' and not split_data[0] in ['bravecollective.com', 'allies.bravecollective.com', 'conference.bravecollective.com', 'public.bravecollective.com']:
-            respond("ERROR: Non-Authorized host {0}".format(split_data[0]), conn)
-            continue
         if not method == 'receive_ping':
             t = Ticket.objects(username=split_data[1]).only('jid_host').first()
             if not t:
