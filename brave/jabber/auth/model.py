@@ -106,7 +106,7 @@ class Ticket(Document):
     corporation = EmbeddedDocumentField(Entity, db_field='o', default=lambda: Entity())
     alliance = EmbeddedDocumentField(Entity, db_field='a', default=lambda: Entity())
     tags = ListField(StringField(), db_field='g', default=list)
-    username = StringField(db_field='d')
+    username = StringField(db_field='d', unique=True)
     
     password = PasswordField(db_field='pw', difficulty=0.125)
     comment = StringField(db_field='m', default='')

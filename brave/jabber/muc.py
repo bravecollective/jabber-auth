@@ -254,3 +254,6 @@ while 1:
         print "BadSignatureError"
         respond("ERROR: AN INTERNAL ERROR HAS OCCURRED", conn)
         raise e
+    except Exception as e:
+        print "An Internal Error has occurred. {0}".format(e)
+        respond("ERROR: AN INTERNAL ERROR HAS OCCURRED", conn)
