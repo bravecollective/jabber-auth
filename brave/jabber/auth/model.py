@@ -261,7 +261,7 @@ class Ticket(Document):
         user.character.id = result.character.id
         user.character.name = result.character.name
         # Spaces and ' are invalid for XMPP IDs
-        user.username = result.character.name.replace(" ", "_").replace("'", "").lower()
+        user.username = result.character.name.replace(" ", "_").replace("'", "").lower() if not user.username else user.username
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
         
