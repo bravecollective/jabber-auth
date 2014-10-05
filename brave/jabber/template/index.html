@@ -64,19 +64,33 @@
             <div class="jabber-name">${web.user.jid_host}</div>
         </%self:panel>
     </div>
-    
-   <div class="col-md-6">
-        <%self:panel title="Jabber MUCs (Conference Server: conference.bravecollective.com)" cls="mucs">
-            <div class="jabber-mucs">
+
+    <div class="col-md-6">
+        <%self:panel title="Jabber Conference Server" cls="muc-server">
+            <div class="jabber-name">conference.bravecollective.com</div>
+        </%self:panel>
+    </div>
+</div>
+
+<div class="row">
+   <div class="col-md-12">
+        <%self:panel title="Available Jabber Rooms" cls="mucs">
+	    <table class="table table-striped">
+		<thead>
+		    <tr>
+			<td>Room</td>
+			<td>Displayname</td>
+		    </tr>
+		</thead>
+		<tbody>
                 % for muc in web.user.joinable_mucs:
-                <%
-                spaces = ""
-                for i in range(len(muc), 15):
-                    spaces += " "
-                %>
-                    <pre>${muc}: ${spaces}${web.user.muc_nickname(muc)}</pre>
+		    <tr>
+			<td>${muc}</td>
+			<td>${web.user.muc_nickname(muc)}</td>
+		    </tr>
                 % endfor
-            </div>
+		</tbody>
+	    </table>
         </%self:panel>
     </div>
 </div>
