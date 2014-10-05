@@ -154,9 +154,14 @@ def send_ping(username, group):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
+        return ACCESS_DENIED
+
+    # If the token is not valid, deny access
+    if not Ticket.authenticate(user.token):
+        log.warn('Token-fail "{}"'.format(name))
         return ACCESS_DENIED
         
     return user.can_send_ping(group)

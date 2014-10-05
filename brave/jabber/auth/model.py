@@ -249,7 +249,7 @@ class Ticket(Document):
         """Validate the given identifier; password is ignored."""
         
         user = cls.objects(token=identifier).first()
-        if user and datetime.utcnow() - user.updated < timedelta(minutes=15):
+        if user and datetime.utcnow() - user.updated < timedelta(minutes=1):
             return user.id, user
 
         api = API(API_ENDPOINT, API_IDENTITY, API_PRIVATE, API_PUBLIC)
