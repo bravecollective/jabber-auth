@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import choice, randint
 from string import printable
 from mongoengine import BinaryField
@@ -156,7 +156,12 @@ class Ticket(Document):
         
         if self.bot:
             return self.display_name
-    
+    	
+        use_corp_ticker = Permission.set_grants_permission(self.tags, 'muc.nick.corp.{0}'.format(muc))
+
+        if use_corp_ticker:
+            alliance = self.corporation.ticker
+
         # Check if the user has a permission granting them access to a rank in this room.
         ranks = Permission.set_has_any_permission(self.tags, 'muc.rank.*.{0}'.format(muc))
         
@@ -243,6 +248,10 @@ class Ticket(Document):
     def authenticate(cls, identifier, password=None):
         """Validate the given identifier; password is ignored."""
         
+        user = cls.objects(token=identifier).first()
+        if user and datetime.utcnow() - user.updated < timedelta(minutes=15):
+            return user.id, user
+
         api = API(API_ENDPOINT, API_IDENTITY, API_PRIVATE, API_PUBLIC)
         result = api.core.info(identifier)
         
@@ -264,7 +273,11 @@ class Ticket(Document):
         user.username = result.character.name.replace(" ", "_").replace("'", "").lower() if not user.username else user.username
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
-        
+ 
+        corporation = api.lookup.corporation(result.corporation.id, only='short
+        if corporation and corporation.success:
+            user.corporation.ticker = corporation.short
+       
         if result.alliance:
             user.alliance.id = result.alliance.id
             user.alliance.name = result.alliance.name
@@ -281,7 +294,7 @@ class Ticket(Document):
         else:
             user.jid_host = 'public.bravecollective.com'
         
-        user.updated = datetime.now()
+        user.updated = datetime.utcnow()
         user.save()
         
         return user.id, user

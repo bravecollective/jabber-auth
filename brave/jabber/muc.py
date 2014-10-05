@@ -55,11 +55,16 @@ def muc_access(username, room):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
     
+    # If the token is not valid, deny access
+    if not Ticket.authenticate(user.token):
+        log.warn('Token-fail "{}"'.format(name))
+        return ACCESS_DENIED
+
     return ACCESS_APPROVED if (room in user.joinable_mucs) else ACCESS_DENIED
     
 def muc_roles(username, room):
@@ -67,7 +72,7 @@ def muc_roles(username, room):
     
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token').get(username=name)
+        user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         respond(ACCESS_DENIED, conn)
@@ -96,7 +101,7 @@ def auth(host, username, password):
 
     # Look up the user.
     try:
-        user = Ticket.objects.only('tags', 'updated', 'password', 'corporation__id', 'alliance__id', 'alliance__ticker', 'character__id', 'token', 'jid_host').get(username=name)
+        user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
         return ACCESS_DENIED
@@ -119,6 +124,10 @@ def auth(host, username, password):
     elif not Ticket.password.check(user.password, password):
        log.warn('pass-fail "%s"', name)
        return ACCESS_DENIED
+
+    if user.bot:
+        user.token = user.owner.token
+        user.save()
          
     # If the token is not valid, deny access
     if not Ticket.authenticate(user.token):
