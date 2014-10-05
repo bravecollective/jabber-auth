@@ -5,7 +5,6 @@
 --
 -- This project is MIT/X11 licensed. Please see the
 -- COPYING file in the source package for more information.
--- Might contain some stuff from mod_muc.lua, so see it's copyright disclaimer
 
 -- BEGIN MUC VARIABLES --
 
