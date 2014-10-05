@@ -274,7 +274,7 @@ class Ticket(Document):
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
  
-        corporation = api.lookup.corporation(result.corporation.id, only='short
+        corporation = api.lookup.corporation(result.corporation.id, only='short')
         if corporation and corporation.success:
             user.corporation.ticker = corporation.short
        
