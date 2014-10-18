@@ -15,7 +15,7 @@ from ecdsa import SigningKey, VerifyingKey, NIST256p
 from binascii import unhexlify
 
 from web.core import config
-from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField, BooleanField
+from mongoengine import Document, EmbeddedDocument, StringField, DateTimeField, IntField, EmbeddedDocumentField, ListField, BooleanField, ReferenceField
 from brave.api.client import API, Permission
 
 
@@ -120,7 +120,8 @@ class Ticket(Document):
     bot = BooleanField(db_field='b')
     # Used solely by bots
     display_name = StringField(db_field='bs')
-    
+    owner = ReferenceField("Ticket", db_field='ow')
+
     @property
     def joinable_mucs(self):
         mucs = Permission.set_has_any_permission(self.tags, 'muc.enter.*')
@@ -168,6 +169,7 @@ class Ticket(Document):
         # If the user has no ranks for this room specified, check if they have any default ranks
         if not ranks:
             ranks = Permission.set_has_any_permission(self.tags, 'muc.rank.*.{0}'.format('default'))
+            muc = "default"
         
         if not ranks:
             return "{0} [{1}]".format(char, alliance)
@@ -249,6 +251,10 @@ class Ticket(Document):
         """Validate the given identifier; password is ignored."""
         
         user = cls.objects(token=identifier).first()
+
+        if user:
+            user.updated = user.updated.replace(tzinfo=None)
+
         if user and datetime.utcnow() - user.updated < timedelta(minutes=1):
             return user.id, user
 
@@ -289,7 +295,9 @@ class Ticket(Document):
         user.tags = [i.replace('jabber.', '') for i in (result.perms if 'perms' in result else [])]
         
         hosts = Permission.set_has_any_permission(user.tags, 'host.*')
-        if hosts:
+        if hosts and 'host.pokemon.bravecollective.com' in hosts:
+            user.jid_host = 'pokemon.bravecollective.com'
+        elif hosts:
             user.jid_host = hosts[0][5:]
         else:
             user.jid_host = 'public.bravecollective.com'
@@ -319,4 +327,5 @@ class Ticket(Document):
         t.display_name = display_name
         t.jid_host = 'bot.bravecollective.com'
         t.bot = True
+        t.owner = owner
         t.save()
