@@ -48,6 +48,9 @@ def muc_access(username, room):
     # TODO: CONFIG THIS
     if server != "conference.bravecollective.com" and server != 'bravecollective.com':
         return ACCESS_APPROVED
+
+    if room == "chat":
+        return ACCESS_APPROVED
     
     name = username
     
@@ -65,6 +68,8 @@ def muc_access(username, room):
         log.warn('Token-fail "{}"'.format(name))
         return ACCESS_DENIED
 
+    user = Ticket.objects.get(username=name)
+
     return ACCESS_APPROVED if (room in user.joinable_mucs) else ACCESS_DENIED
     
 def muc_roles(username, room):
@@ -75,6 +80,10 @@ def muc_roles(username, room):
         user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
+
+        if room == "chat":
+            return "member:participant"
+
         respond(ACCESS_DENIED, conn)
         return
     
@@ -89,6 +98,10 @@ def muc_nick(username, room):
         user = Ticket.objects.get(username=name)
     except Ticket.DoesNotExist:
         log.warn('User "%s" not found in the Ticket database.', name)
+
+        if room == "chat":
+            return (username + " (SPAI)")
+
         respond(ACCESS_DENIED, conn)
         return
         
@@ -131,6 +144,7 @@ def auth(host, username, password):
          
     # If the token is not valid, deny access
     if not Ticket.authenticate(user.token):
+        log.warn("Invalid token")
         return ACCESS_DENIED
         
     tags = [i.replace('jabber.', '') for i in user.tags]
@@ -144,6 +158,7 @@ def auth(host, username, password):
     ticker = user.alliance.ticker if user.alliance.ticker else '----'
     
     if not Permission.set_grants_permission(tags, 'connect'):
+        log.warn("Not eligible to connect")
         return ACCESS_DENIED
     
     return ACCESS_APPROVED
@@ -231,7 +246,8 @@ while 1:
         #conn.send("Hello o/\n")
         method, sep, data = line.partition(":")
         split_data = data.split(":")
-        if not method == 'receive_ping':
+        if not method == 'receive_ping' and not (method == 'muc_access' and split_data[2] == "chat@conference.bravecollective.com" and split_data[0] != "braveineve.com" and split_data[0] != "pleaseignore.com" and split_data[0] != "allies.pleaseignore.com" and split_data[0] != "prosody.pleaseignore.com") and not (method=='muc_roles' and split_data[2] == "chat") and not (method=="muc_nick" and split_data[2] == "chat"):
+
             t = Ticket.objects(username=split_data[1]).only('jid_host').first()
             if not t:
                 respond("ERROR: User {0} does not exist".format(split_data[1]), conn)
@@ -242,8 +258,9 @@ while 1:
         if method == "muc_access" and len(split_data) == 3:
             respond(muc_access(split_data[1], split_data[2]), conn)
             continue
-        elif method == "auth" and len(split_data) == 3:
-            respond(auth(split_data[0], split_data[1], split_data[2]), conn)
+        elif method == "auth" and len(split_data) >= 3:
+            password = ":".join([split_data[i] for i in range(2, len(split_data))])
+            respond(auth(split_data[0], split_data[1], password), conn)
             continue
         elif method == "isuser" and len(split_data) == 2:
             respond(isuser(split_data[1]), conn)
