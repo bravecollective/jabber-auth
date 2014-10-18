@@ -784,14 +784,10 @@ function room_mt:handle_command(stanza)
     log("warn", "In handle_command");
     local to = stanza.attr.to;
     local from = stanza.attr.from;
-    log("info", to);
-    log("info", from);
-    log("warn", tostring(stanza))
     local message = stanza:get_child_text("body");
     local segments = {}
     local length = 0
     for entry in message:gmatch("[^%s]+") do
-        log("info", entry)
         segments[length] = entry;
         length = length + 1;
     end
@@ -804,13 +800,10 @@ function room_mt:handle_command(stanza)
         local kickee = segments[1];
         local kickee_jid = "";
         for k,v in pairs(self._occupants) do
-            log("warn", tostring(k))
-            log("info", tostring(v))
         end
         while index < length do
             if self._occupants[self.jid.."/"..kickee] then
                 kickee_jid = self.jid.."/"..kickee;
-                log("warn", kickee_jid)
                 break;
             else
                 kickee = kickee .. " " .. segments[index];
@@ -825,19 +818,13 @@ function room_mt:handle_command(stanza)
             reason = reason .. segments[index];
             index = index + 1;
         end
-        log("info", tostring(self))
-        log("info", from)
-        log("info", kickee_jid)
-        log("info", reason)
         local kicker = self._occupants[from];
-        log("info", tostring(kicker.role))
-        log("info", tostring(kicker.affiliation))
         local allowed, err_type, err_condition = self:can_set_role(from, kickee_jid, nil);
-        log("info", tostring(allowed))
-        log("info", tostring(err_type))
-        log("info", tostring(err_condition))
         if not allowed then return allowed, err_type, err_condition; end
         --self:set_role(from, kickee_jid, nil, nil, reason)
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Kick Bot"}):tag("body"):text(kickee..": Get rekt"):up()
+        self:broadcast_message(s, false);
+
         local x = st.stanza("x", {xmlns = "http://jabber.org/protocol/muc#user"})
 			:tag("item", {affiliation="none", nick=select(3, jid_split(kickee_jid)), role="none"})
 				:tag("reason"):text(reason or ""):up()
@@ -903,7 +890,7 @@ function room_mt:handle_command(stanza)
         return true;
     end
     if command == "!leadership" then
-        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/The Mittani Bot [CONDI]"}):tag("body"):text("https://soundcloud.com/lassieme/mittani-talks-to-brave#t=11m38s"):up()
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/The Mittani Bot [CONDI]"}):tag("body"):text("http://dump.501gu.de/poisonous_leadership.mp3"):up()
         self:broadcast_message(s, false);
         return true;
     end
@@ -1013,10 +1000,75 @@ function room_mt:handle_command(stanza)
         self:broadcast_message(s, false);
         return true;
     end
+    if command == "!asshole" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://i.imgur.com/40Idny0.png"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!wow" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://i.imgur.com/Nw6vl2O.gif"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!acid" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Acid Katelo Bot [BRAVE]"}):tag("body"):text("https://38.media.tumblr.com/tumblr_mebfplAREn1qa9qt5o1_400.gif"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!die" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("https://38.media.tumblr.com/92810532838ccbe240599461b5070b09/tumblr_n5b7oiZlGk1rfduvxo1_500.gif"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!no" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://img4.wikia.nocookie.net/__cb20130812015058/epicrapbattlesofhistory/images/e/ef/Um_no.gif"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!usb" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://i.imgur.com/2J20Wgs.png"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    
+    if command == "!freedom" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://i.imgur.com/HvM2MpH.jpg"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!stop" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Server"}):tag("body"):text("http://i.imgur.com/56dyQ.gif"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+    if command == "!itpls" then
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("Send ISK to Katelo Industries for super legit Jabber benefits \\o/"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("---------------------------------------------------------------------------"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("100 Million ISK: Custom title in 1 chat channel"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("100 Million ISK: Alliance ticker changed to Corp ticker in 1 chat channel"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("100 Million ISK: Custom !command (Simple text or image link only)"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("250 Million ISK: Custom tag in 1 chat channel"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("500 Million ISK: Name changed across all chat channels"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("1 Billion ISK: Access to !dhd across all chat rooms"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("2.5 Billion ISK: Moderator in chat"):up()
+        self:broadcast_message(s, false);
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Brave IT"}):tag("body"):text("2.5 Billion ISK: Custom Auth group and Jabber channel"):up()
+        self:broadcast_message(s, false);
+        return true;
+    end
+
     if message:lower():find("thanks obama") ~= nil then
         local node, host, resource;
         node, host, resource = jid_split(stanza.attr.from);
-        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Obama Bot"}):tag("body"):text(resource..": You're welcome."):up()
+        local s = st.message({type="groupchat", to=stanza.attr.to, from=jid_bare(stanza.attr.from).."/Barack Obama Bot [USA]"}):tag("body"):text(resource..": You're welcome."):up()
         self:broadcast_message(s, false);
         return true;
     end
