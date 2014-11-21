@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 from web.auth import authenticate, deauthenticate
-from web.core import config, url
+from web.core import config, url, session
 from web.core.http import HTTPFound
 
 from brave.api.client import API
@@ -39,6 +39,10 @@ class AuthenticationMixIn(object):
         
         # We request an authenticated session from the server.
         
+        # Prevent users from specifying their session IDs (Some user-agents were sending null ids, leading to users
+        # authenticated with a session id of null
+        session.regenerate_id()
+
         authenticate(token)
         
         raise HTTPFound(location='/')
