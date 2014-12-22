@@ -48,16 +48,27 @@ function send_to_online(message, host, group)
 	local resp = str_query('receive_ping:'..group)
 	resp = resp:gsub("'", "")	
         	
-	for hostname, host_session in pairs(sessions) do
-	    if host_session.sessions then
-		for user in resp:gmatch("[a-zA-Z0-9_]+@"..hostname) do
-	            c = c + 1;
-		    message.attr.to = user;
-		    module:send(message);
-	        end
-	    end
-	end
+    local bare_sessions = prosody.bare_sessions;
 
+        for user in resp:gmatch("[a-zA-Z0-9_]+@[a-zA-Z0-9_\.]+") do
+            if user:sub(0,1) == "1" then
+                message.attr.from = host;
+            else
+                message.attr.from = group.."."..host;
+            end
+            user = user:sub(2);
+            message.attr.to = user
+            local meh = bare_sessions[user];
+            if meh ~= nil then
+                local has_session = 0;
+                module:log("warn", user);
+                for _, session in pairs(meh.sessions or {}) do
+                    has_session = 1;
+                    session.send(message);
+                end
+                c = c + has_session;
+            end
+        end
 	return c;
 end
 

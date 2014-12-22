@@ -122,6 +122,11 @@ class Ticket(Document):
     display_name = StringField(db_field='bs')
     owner = ReferenceField("Ticket", db_field='ow')
 
+    combine_pings = BooleanField()
+
+    def can_join_muc(self, muc):
+        return Permission.set_grants_permission(self.tags, "muc.enter.{}".format(muc))
+
     @property
     def joinable_mucs(self):
         mucs = Permission.set_has_any_permission(self.tags, 'muc.enter.*')
@@ -178,7 +183,8 @@ class Ticket(Document):
         for r in ranks:
             # Remove the beginning portion of the permission, as well as the room identifier to get just the rank
             display.add(r.replace("muc.rank.", "").replace(".{0}".format(muc), ""))
-    
+
+        display = sorted(display)
         return "{0} [{1}] ({2})".format(char, alliance, ", ".join(display))
         
     def muc_roles(self, muc):
@@ -211,7 +217,7 @@ class Ticket(Document):
         if not role and affiliation == 'owner' or affiliation == 'admin':
             role = 'moderator'
             
-        if not muc in self.joinable_mucs:
+        if not self.can_join_muc(muc):
             return "outcast:visitor"
     
         # Default affiliation is member (user will have already been checked for access)
@@ -225,7 +231,7 @@ class Ticket(Document):
         
     def can_receive_ping(self, ping_group):
         if not Permission.set_grants_permission(self.tags, 'ping.ignore.{0}'.format(ping_group)) and Permission.set_grants_permission(self.tags, 'ping.receive.{0}'.format(ping_group)):
-            return(str(str(self.username) + str("@") + str(self.jid_host)))
+            return(str((str("0") if not self.combine_pings else str("1")) + str(self.username) + str("@") + str(self.jid_host)))
             
         return False
         
@@ -247,10 +253,13 @@ class Ticket(Document):
         return "<Ticket {0.id} \"{0.character.name}\">".format(self)
     
     @classmethod
-    def authenticate(cls, identifier, password=None):
+    def authenticate(cls, identifier, password=None, bot=False):
         """Validate the given identifier; password is ignored."""
-        
-        user = cls.objects(token=identifier).first()
+
+        if bot:
+            user = cls.objects(token=identifier, bot=True)
+        else:
+            user = cls.objects(token=identifier)
 
         if user:
             user.updated = user.updated.replace(tzinfo=None)
@@ -266,8 +275,11 @@ class Ticket(Document):
             log.info("Token %s not valid, or connection to Core has been lost.", identifier)
             return None
         
-        user = cls.objects(character__id=result.character.id).first()
-        
+        if bot:
+            user = cls.objects(character__id=result.character.id, bot=True).first()
+        else:
+            user = cls.objects(character__id=result.character.id).first()
+
         if not user:
             user = cls(token=identifier, expires=result.expires, seen=datetime.utcnow())
         elif identifier != user.token:
@@ -276,7 +288,7 @@ class Ticket(Document):
         user.character.id = result.character.id
         user.character.name = result.character.name
         # Spaces and ' are invalid for XMPP IDs
-        user.username = result.character.name.replace(" ", "_").replace("'", "").lower() if not user.username else user.username
+        user.username = result.character.name.replace(" ", "_").replace("'", "").replace("-", "").lower() if not user.username else user.username
         user.corporation.id = result.corporation.id
         user.corporation.name = result.corporation.name
  
@@ -293,7 +305,13 @@ class Ticket(Document):
                 user.alliance.ticker = alliance.short
         
         user.tags = [i.replace('jabber.', '') for i in (result.perms if 'perms' in result else [])]
-        
+
+        if user.bot:
+            user.updated = datetime.utcnow()
+            user.save()
+
+            return user.id, user
+
         hosts = Permission.set_has_any_permission(user.tags, 'host.*')
         if hosts and 'host.pokemon.bravecollective.com' in hosts:
             user.jid_host = 'pokemon.bravecollective.com'

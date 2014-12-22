@@ -70,7 +70,7 @@ def muc_access(username, room):
 
     user = Ticket.objects.get(username=name)
 
-    return ACCESS_APPROVED if (room in user.joinable_mucs) else ACCESS_DENIED
+    return ACCESS_APPROVED if (user.can_join_muc(room)) else ACCESS_DENIED
     
 def muc_roles(username, room):
     name = username
@@ -143,7 +143,7 @@ def auth(host, username, password):
         user.save()
          
     # If the token is not valid, deny access
-    if not Ticket.authenticate(user.token):
+    if not Ticket.authenticate(user.token, bot=user.bot):
         log.warn("Invalid token")
         return ACCESS_DENIED
         
@@ -185,7 +185,7 @@ def receive_ping(group):
     
     # users = Ticket.objects.only('username').get(tags__in='ping.receive.{0}'.format(group))
     
-    users = Ticket.objects.only('username', 'tags', 'jid_host')
+    users = Ticket.objects.only('username', 'tags', 'jid_host', 'combine_pings')
     
     members = []
     

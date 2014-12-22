@@ -73,6 +73,15 @@
 </div>
 
 <div class="row">
+    <div class="col-md-12">
+        <%self:panel title="Toggle Pings Coming From One Host" cls="mucs">
+            Pings combined: ${web.user.combine_pings}<br/>
+            <button class="togglePings">Toggle Combined Pings</button>
+        </%self:panel>
+    </div>
+</div>
+
+<div class="row">
    <div class="col-md-12">
         <%self:panel title="Available Jabber Rooms" cls="mucs">
 	    <table class="table table-striped">
@@ -131,6 +140,20 @@
                     return true;
                 }
             }
+
+            function submitToggle(){
+                $.post('/combine_pings', function(result) {
+                   if ( result.success ) {
+                        window.location = "/";
+                        // Successful
+                        return;
+                   }
+                });
+}
+
+            $('.togglePings').on('click', submitToggle);
+
+
 
             function submitPasswordForm()
             {
